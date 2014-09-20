@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<style>
+	body {
+		background-color: #ffffff;
+		margin: 0;
+		overflow: hidden;
+	}
+	</style>
+</head>
+<body>
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/three.js/r57/three.min.js"></script>
+	<script src="http://js.leapmotion.com/leap-0.6.2.min.js"></script>
+	<script>
+
+	var camera, scene, renderer;
+	var geometry, material, mesh;
+	var strokePointDiffs=[];
+	var stroke;
+	var mousedown = false;
+	var propogateRope = false;
+	var getStroke = false;
+	var previousFrame = null;
+
+	var init = function () {
+
+		renderer = new THREE.WebGLRenderer();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		document.body.appendChild( renderer.domElement );
+                camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1000 );
+                camera.position.z = 9;
+
+                scene = new THREE.Scene();
+                
+                var ambientLight= new THREE.AmbientLight( 0x020202 )
+                scene.add( ambientLight)
+                var frontLight  = new THREE.DirectionalLight('white', 1)
+                frontLight.position.set(0.5, 0.5, 2)
+                scene.add( frontLight )
+                var backLight   = new THREE.DirectionalLight('white', 0.75)
+                backLight.position.set(-0.5, -0.5, -2)
+                scene.add( backLight )      
+
+                geometry = new THREE.CubeGeometry( 1, 1, 1 );
+                material = new THREE.MeshBasicMaterial( { color: 0x404000, wireframe: true, wireframeLinewidth: 5 } );
+                mesh = new THREE.Mesh( geometry, material );
+                scene.add( mesh );
+
+                geometry = new THREE.PlaneGeometry( 20, 5 );
+                material = new THREE.MeshLambertMaterial( {color: 0x080808, side: THREE.DoubleSide} );
+                plane = new THREE.Mesh( geometry, material );
+                plane.rotation.x = Math.PI/2;
+                scene.add( plane )
+                
+                geometry = new THREE.Geometry();
+                material = new THREE.LineBasicMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
+                geometry.dynamic = true;
+                stroke = new THREE.Line(geometry, material);
+
+                // var curvePoints = [];
+                // for (var i = Math.PI; i >= 0; i=i-0.1) 
+                // {
+                //  storeCoordinates(-5+Math.cos(i), Math.sin(i), 0, curvePoints);
+                // }
+                
+                // curveDiffs = getDiffArray(curvePoints);
+
+                // //alert(curveDiffs);
+                // // document.write(curvePointsX);
+                // geometry = new THREE.Geometry();
+                // material = new THREE.LineBasicMaterial({
+                //  color: 0xff0000, wireframeLinewidth: 5 
+                //  });
+                // for (var i = 0; i < curvePoints.length; i++) {
+                //  geometry.vertices.push(new THREE.Vector3(curvePoints[i].x, curvePoints[i].y, curvePoints[i].z));
+                // };
+                // geometry.dynamic = true;
+                // // geometry.vertices.push(new THREE.Vector3(-5, 2, 0));
+                // // geometry.vertices.push(new THREE.Vector3(0 , 6, 0));
+                // // geometry.vertices.push(new THREE.Vector3(5, 1, 0));
+                // storke = new THREE.Line(geometry, material);
+                // scene.add(storke);
+                //animateLine();
+
+                //animateLine();
+            }
+
+            var animate = function () 
+            {
+
+            	requestAnimationFrame( animate );
+
+            	mesh.rotation.x = Date.now() * 0.0005;
+            	mesh.rotation.y = Date.now() * 0.001;
+
+            	animateLine();
+            	renderer.render( scene, camera );
+            }
+
+            var controllerOptions = {enableGestures: true};
+            Leap.loop(controllerOptions, function(frame) {
+            	if (!getStroke) {    
+                    return; // Skip this update
+                }
+
+                if(frame.pointables.length>0) {
+                	for (var i = 0; i < frame.pointables.length; i++) {
+                		var pointable = frame.pointables[i];
+                		if(pointable.type == 1) {
+
+                			var newDiff = new THREE.Vector3();
+                			if(stroke.geometry.vertices.length >1) {
+                				newDiff.subVectors(newPoint, stroke.geometry.vertices[stroke.geometry.vertices.length-1]);
+                				strokePointDiffs.push(newDiff);
+                			}
+                			geometry.vertices.push(pointable.stabilizedTipPosition);
+                			stroke.geometry.verticesNeedUpdate = true;
+
+                		}
+                	}
+                }
+                if (frame.gestures.length > 0) {
+                	for (var i = 0; i < frame.gestures.length; i++) {
+                		var gesture = frame.gestures[i];
+                		if(gesture.type == "keyTap") {
+                			if(getStroke == true) {
+                				propogateRope = true;
+                			} else {
+                				propogateRope = false;
+                				scene.remove(stroke);
+                				geometry = new THREE.Geometry();
+                				material = new THREE.LineBasicMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
+                				geometry.dynamic = true;
+                				stroke = new THREE.Line(geometry, material);
+                				strokePointDiffs = [];
+                				scene.add(stroke);
+                			}
+                			toggleStrokeCapture();
+                		}
+                	}
+                }
+
+            });
+
+function toggleStrokeCapture() 
+{
+	getStroke = !getStroke;
+}
+
+function onDocumentMouseDown (event) 
+{
+	if(!mousedown) {
+		mousedown = true;
+		propogateRope = false;
+		scene.remove(stroke);
+		geometry = new THREE.Geometry();
+		material = new THREE.LineBasicMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
+		geometry.dynamic = true;
+		stroke = new THREE.Line(geometry, material);
+		strokePointDiffs = [];
+		scene.add(stroke);
+	}
+}
+
+function onDocumentMouseMove (event) 
+{
+	if(mousedown) {
+		var mouse   = {x : 0, y : 0}
+		mouse.x = (event.clientX / window.innerWidth ) - 0.5;
+		mouse.y = (event.clientY / window.innerHeight) - 0.5;
+
+		var planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+		var mv = new THREE.Vector3( mouse.x, -mouse.y, 0 );
+		var projector = new THREE.Projector();
+		var raycaster = projector.pickingRay(mv, camera);
+		var pos = raycaster.ray.intersectPlane(planeZ);
+		console.log("x: " + pos.x + ", y: " + pos.y);
+
+
+		var newPoint = new THREE.Vector3( pos.x, pos.y, 0);
+		var newDiff = new THREE.Vector3();
+		if(stroke.geometry.vertices.length >1) {
+			newDiff.subVectors(newPoint, stroke.geometry.vertices[stroke.geometry.vertices.length-1]);
+			strokePointDiffs.push(newDiff);
+		}
+		geometry.vertices.push(newPoint);
+		stroke.geometry.verticesNeedUpdate = true;  
+	}
+
+}
+
+function onDocumentMouseUp (event)
+{
+	stroke.geometry.verticesNeedUpdate = true;
+	mousedown = false;
+	propogateRope = true;
+}
+
+
+function animateLine() 
+{ 
+	if(stroke.geometry.vertices.length >1 && propogateRope) {
+		firstDiff = strokePointDiffs.shift();
+		stroke.geometry.vertices.shift();
+		console.log(firstDiff);
+		var newPoint = new THREE.Vector3();
+		newPoint.addVectors(stroke.geometry.vertices.slice(-1), firstDiff);
+
+		strokePointDiffs.push(firstDiff);               
+		stroke.geometry.vertices.push(newPoint);
+		stroke.geometry.verticesNeedUpdate = true;
+	}
+}
+
+init();
+animate();
+
+</script>
+</body>
+</html>
