@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<style>
 	body {
-		background-color: #ffffff;
+		background-color: #808080;
 		margin: 0;
 		overflow: hidden;
 	}
@@ -17,12 +17,15 @@
 
 	var camera, scene, renderer;
 	var geometry, material, mesh;
-	var strokePointDiffs=[];
+	var slinkyPosDiffs=[];
 	var stroke;
 	var mousedown = false;
 	var propogateRope = false;
 	var getStroke = false;
 	var previousFrame = null;
+	var slinkyArray = [];
+	var slinkyPosArrayCyclicIndex;
+	var diffArrayCyclicIndex =0;
 
 	var init = function () {
 
@@ -54,10 +57,16 @@
 		plane.rotation.x = Math.PI/2;
 		scene.add( plane )
 
+		geometry = new THREE.PlaneGeometry( 0.1, 0.1 );
+		material = new THREE.MeshLambertMaterial( {color: 0x800808, side: THREE.DoubleSide} );
+		fingerPointer = new THREE.Mesh( geometry, material );
+		scene.add( fingerPointer )
+
 		geometry = new THREE.Geometry();
 		material = new THREE.LineBasicMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
 		geometry.dynamic = true;
 		stroke = new THREE.Line(geometry, material);
+		scene.add(stroke);
 
 	}
 
@@ -74,67 +83,127 @@
 	}
 
 	var controllerOptions = {enableGestures: true};
+
 	Leap.loop(controllerOptions, function(frame) {
-		if (!getStroke) {    
-                    return; // Skip this update
-                }
+		if(frame.hands.length>0) {
+			for (var i = 0; i < frame.hands.length; i++) {
+				if(frame.hands[i].type == "right") {
+					var pointable = frame.hands[i].indexFinger;
+					var thumb     = frame.hands[i].thumb;
+					if(pointable.valid) {
+						var iBox = frame.interactionBox;
+						var leapCoordsNormalized = pointable.stabilizedTipPosition;
+						leapCoordsNormalized[1] -= iBox.height/2;
+						scaleArray3(leapCoordsNormalized, 0.1);
+						fingerPointer.position.set(leapCoordsNormalized[0], leapCoordsNormalized[1], leapCoordsNormalized[2]);
 
-                if(frame.pointables.length>0) {
-                	for (var i = 0; i < frame.pointables.length; i++) {
-                		var pointable = frame.pointables[i];
-                		if(pointable.type == 1) {
+						if(getStroke) {
+							addObjectToSlinky(leapCoordsNormalized);
+						}
+					}
+					if(thumb.valid) {
+						if(!thumb.extended) {
+							console.log('recording curve');
+							if(!getStroke) {
+								propogateRope = false;
+								getStroke = true;
+							}
+						} else {
+							console.log('not recording curve');
+							if(getStroke) {
+								getStroke = false;
+								propogateRope = true;
+								for(i=1; i<slinkyArray.length-1; i++) {
+									currDiff = new THREE.Vector3();
+									console.log('slinkyarray:'+slinkyArray[i].position.x);
+									currDiff.subVectors(slinkyArray[i].position, slinkyArray[i-1].position);
+									slinkyPosDiffs.push(currDiff);
+								}
+								slinkyPosArrayCyclicIndex = slinkyArray.length-1;
+							}
+							
+							
+						}
 
-                			var newDiff = new THREE.Vector3();
-                			if(stroke.geometry.vertices.length >1) {
-                				newDiff.subVectors(newPoint, stroke.geometry.vertices[stroke.geometry.vertices.length-1]);
-                				strokePointDiffs.push(newDiff);
-                			}
-                			geometry.vertices.push(pointable.stabilizedTipPosition);
-                			stroke.geometry.verticesNeedUpdate = true;
+					}
+				}
+			}
+		}
+		// if (frame.gestures.length > 0) {
+		// 	for (var i = 0; i < frame.gestures.length; i++) {
+		// 		var gesture = frame.gestures[i];
+		// 		if(gesture.type == "keyTap") {
+		// 			console.log('tap found');
+		// 			if(getStroke == true) {
+		// 				propogateRope = true;
+		// 			} else {
+		// 				propogateRope = false;
+		// 				scene.remove(stroke);
+		// 				geometry = new THREE.Geometry();
+		// 				material = new THREE.LineBasicMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
+		// 				geometry.dynamic = true;
+		// 				stroke = new THREE.Line(geometry, material);
+		// 				strokePointDiffs = [];
+		// 				scene.add(stroke);
+		// 			}
+		// 			toggleStrokeCapture();
+		// 		}
+		// 	}
+		// }
 
-                		}
-                	}
-                }
-                if (frame.gestures.length > 0) {
-                	for (var i = 0; i < frame.gestures.length; i++) {
-                		var gesture = frame.gestures[i];
-                		if(gesture.type == "keyTap") {
-                			if(getStroke == true) {
-                				propogateRope = true;
-                			} else {
-                				propogateRope = false;
-                				scene.remove(stroke);
-                				geometry = new THREE.Geometry();
-                				material = new THREE.LineBasicMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
-                				geometry.dynamic = true;
-                				stroke = new THREE.Line(geometry, material);
-                				strokePointDiffs = [];
-                				scene.add(stroke);
-                			}
-                			toggleStrokeCapture();
-                		}
-                	}
-                }
+	});
 
-            });
+// function fingerPaint(tip, paintColor)
+// {
+//    fill(paintColor);
+//     float x = tip.getX() * width;
+//     float y = height - tip.getY() * height;
+//     ellipse( x, y, 10, 10);   
+// }
+function getNextIndex(idx, n) {
+	var newIndex = (idx+1)%n;
+	return newIndex;
+}
+function addObjectToSlinky(centerVector)
+{
+	geometry = new THREE.SphereGeometry(0.5, 50, 50);
+	material = new THREE.MeshNormalMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
+	geometry.dynamic = true;
+	slinkyArray.push(new THREE.Mesh(geometry, material));
+	slinkyArray[slinkyArray.length-1].position.set(centerVector[0], centerVector[1], centerVector[2]);
+	scene.add(slinkyArray[slinkyArray.length-1]);
+}
 
+//function updateSpherePosition(sphereIndex)
 function toggleStrokeCapture() 
 {
 	getStroke = !getStroke;
 }
 
+function scaleArray3(arr, scaleFactor)
+{
+	for(i=0; i<arr.length; i++) {
+		arr[i] *= scaleFactor;
+	}
+}
+
+function translateArray3(arr, translateVector)
+{
+	for(i=0; i<arr.length; i++) {
+		arr[i] += translateVector[i];
+	}
+}
+
 function animateLine() 
 { 
-	if(stroke.geometry.vertices.length >1 && propogateRope) {
-		firstDiff = strokePointDiffs.shift();
-		stroke.geometry.vertices.shift();
-		console.log(firstDiff);
-		var newPoint = new THREE.Vector3();
-		newPoint.addVectors(stroke.geometry.vertices.slice(-1), firstDiff);
+	if(propogateRope) {
+		var newPosx = slinkyArray[slinkyPosArrayCyclicIndex].position.x + slinkyPosDiffs[diffArrayCyclicIndex].x;
+		var newPosy = slinkyArray[slinkyPosArrayCyclicIndex].position.y + slinkyPosDiffs[diffArrayCyclicIndex].y;
+		var newPosz = slinkyArray[slinkyPosArrayCyclicIndex].position.z + slinkyPosDiffs[diffArrayCyclicIndex].z;
 
-		strokePointDiffs.push(firstDiff);               
-		stroke.geometry.vertices.push(newPoint);
-		stroke.geometry.verticesNeedUpdate = true;
+		slinkyPosArrayCyclicIndex = getNextIndex(slinkyPosArrayCyclicIndex, slinkyArray.length);
+		slinkyArray[slinkyPosArrayCyclicIndex].position.set(newPosx, newPosy, newPosz);
+		diffArrayCyclicIndex = getNextIndex(diffArrayCyclicIndex, slinkyPosDiffs.length);
 	}
 }
 
