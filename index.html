@@ -49,23 +49,14 @@
 		renderer.setClearColor( 0x808080, 1 );
 		document.body.appendChild( renderer.domElement );
 		camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1000 );
-		camera.position.z = 20;
-		camera.position.y = 10;
+		camera.position.z = 90;
+		camera.position.y = 20;
 		camera.position.x = 0;
 
 		scene = new Physijs.Scene();
 
 
-		camera.lookAt(scene.position);
-
-		// var ambientLight= new THREE.AmbientLight( 0x020202 )
-		// scene.add( ambientLight)
-		// var frontLight  = new THREE.DirectionalLight('white', 1)
-		// frontLight.position.set(0.5, 0.5, 2)
-		// scene.add( frontLight )
-		// var backLight   = new THREE.DirectionalLight('white', 0.75)
-		// backLight.position.set(-0.5, -0.5, -2)
-		// scene.add( backLight )      
+		camera.lookAt(scene.position);    
 		resetScene();
 	
 
@@ -142,8 +133,6 @@
 
 						if(getStroke) {
 							addObjectToSlinky(leapCoordsNormalized);
-							// slinky.geometry.vertices.push(new THREE.Vector3(leapCoordsNormalized[0], leapCoordsNormalized[1], leapCoordsNormalized[2]));
-							// slinky.geometry.verticesNeedUpdate = true;
 						}
 					}
 					if(thumb.valid) {
@@ -160,7 +149,6 @@
 								propogateRope = true;								
 								for(i=1; i<slinkyArray.length-1; i++) {
 									currDiff = new THREE.Vector3();
-									// console.log('slinkyarray:'+slinky.geometry.vertices[i].position.x);
 									currDiff.subVectors(slinkyArray[i].position, slinkyArray[i-1].position);
 									slinkyPosDiffs.push(currDiff);
 								}
@@ -187,43 +175,6 @@
 				}
 			}
 		}
-		// if(frame.gestures.length>0) {
-		// 	for (var i = 0; i < frame.gestures.length; i++) {
-		// 		var gesture = frame.gestures[i];
-		// 		if(gesture.type == "swipe") {
-		// 			// console.log('clear the screen');
-		// 			// propogateRope = false;
-		// 			// getStroke = false;
-		// 			// for (var j = slinkyArray.length-1; j >= 0; j--) {
-		// 			// 	scene.remove(slinkyArray[j]);
-		// 			// }
-		// 			// slinkyArray.splice(0, slinkyArray.length);
-		// 			// slinkyPosDiffs.splice(0,slinkyPosDiffs.length);
-		// 			// diffArrayCyclicIndex=0;
-		// 		}
-		// 	}
-		// }
-		// if (frame.gestures.length > 0) {
-		// 	for (var i = 0; i < frame.gestures.length; i++) {
-		// 		var gesture = frame.gestures[i];
-		// 		if(gesture.type == "keyTap") {
-		// 			console.log('tap found');
-		// 			if(getStroke == true) {
-		// 				propogateRope = true;
-		// 			} else {
-		// 				propogateRope = false;
-		// 				scene.remove(stroke);
-		// 				geometry = new THREE.Geometry();
-		// 				material = new THREE.LineBasicMaterial( {color: 0xff0000, wireframeLinewidth: 5} );
-		// 				geometry.dynamic = true;
-		// 				stroke = new THREE.Line(geometry, material);
-		// 				strokePointDiffs = [];
-		// 				scene.add(stroke);
-		// 			}
-		// 			toggleStrokeCapture();
-		// 		}
-		// 	}
-		// }
 
 	});
 
@@ -241,7 +192,6 @@ function addObjectToSlinky(centerVector)
 	scene.add(slinkyArray[slinkyArray.length-1]);
 }
 
-//function updateSpherePosition(sphereIndex)
 function toggleStrokeCapture() 
 {
 	getStroke = !getStroke;
@@ -279,7 +229,6 @@ function resetScene()
 	geometry = new THREE.BoxGeometry( 10, 10, 10 );
 	material = new THREE.MeshBasicMaterial( { color: 0x404000, wireframe: true, wireframeLinewidth: 50 } );
 	mesh = new Physijs.BoxMesh( geometry, material );
-	// scene.add( mesh );
 
 	geometry = new THREE.PlaneGeometry( 100, 100 );
 	material = new THREE.MeshBasicMaterial( {color: 0xffffe0, side: THREE.DoubleSide} );
